@@ -105,6 +105,57 @@ class QualtricsMailingList(object):
             request_check_progress = request_response.json()["result"][
                 "percentComplete"]
 
+    
+    def import_contact_list_from_pandas_df(self, df) -> None:
+        """Imports a contact list from a Pandas dataframe using a Qualtrics v3 API call.
+
+        Args:
+            df: pandas dataframe containing
+                subset of the following column headers in the next line to be
+                read and corresponding data in all following lines:
+                - id
+                - firstName
+                - lastName
+                - email
+                - language
+                - unsubscribed
+                - externalReference
+                see https://api.qualtrics.com/docs/create-contacts-import
+
+        """
+
+        # convert csv file contents to JSON records format
+        contact_list = json.loads(df.to_json(orient='records'))
+
+        # make Qualtrics API v3 call to upload contact list
+        request_response = requests.request(
+            "POST",
+            f"https://{self.account.data_center}.qualtrics.com"
+            f"/API/v3/mailinglists/{self.id}/contactimports",
+            json={"contacts": contact_list},
+            headers={
+                "content-type": "application/json",
+                "x-api-token": self.account.api_token,
+            },
+        )
+
+        # check upload progress until complete
+        progress_id = request_response.json()["result"]["id"]
+        request_check_progress = 0
+        while request_check_progress < 100:
+            request_response = requests.request(
+                "GET",
+                f"https://{self.account.data_center}.qualtrics.com"
+                f"/API/v3/mailinglists/{self.id}/contactimports/{progress_id}",
+                headers={
+                    "x-api-token": self.account.api_token,
+                },
+            )
+            request_check_progress = request_response.json()["result"][
+                "percentComplete"]
+
+                
+
     @property
     def contact_list(self) -> dict:
         """Returns mailing list's contact list without caching"""
